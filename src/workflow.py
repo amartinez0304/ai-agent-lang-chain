@@ -30,7 +30,7 @@ class Workflow:
         article_query = f"{state.query} tools comparison best alternatives"
         search_results = self.firecrawl.search_companies(article_query, num_results=3)
         all_content = ""
-        for result in search_results:
+        for result in search_results.data:
             url = result.get("url", "")
             scraped = self.firecrawl.scrape_company_page(url)
             if scraped:
@@ -48,7 +48,7 @@ class Workflow:
                 for name in response.content.strip().split("\n")
                 if name.strip()
             ]
-            print(f"Extracted tools: {'.'.join(tool_names[:5])}")
+            print(f"Extracted tools: {', '.join(tool_names[:5])}")
             return {"extracted_tools": tool_names}        
         except Exception as e:
             print(e)
@@ -87,9 +87,9 @@ class Workflow:
                 for result in search_results.data
             ]
         else:
-            tool_names = extracted_tools[4]
+            tool_names = extracted_tools[:4]
             
-        print(f"Researching specific tools: {','.join(tool_names)}")
+        print(f"Researching specific tools: {', '.join(tool_names)}")
         
         companies = []
         for tool_name in tool_names:
@@ -119,7 +119,7 @@ class Workflow:
                     
                 companies.append(company)
         
-        return companies
+        return {"companies": companies}
     
     def _analyze_step(self, state:ResearchState) -> Dict[str, Any]:
         print("Generating recomendations")
@@ -134,6 +134,7 @@ class Workflow:
         
         response = self.llm.invoke(messages)
         return {"analysis": response.content}
+    
     
     def run(self, query:str) -> ResearchState:
         initial_state = ResearchState(query=query)
