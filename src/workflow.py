@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from langgraph import StateGraph, END
+from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from .models import ResearchState, CompanyAnalysis, CompanyInfo
@@ -14,7 +14,15 @@ class Workflow:
         self.workflow = self._build_workflow()
         
     def _build_workflow(self):
-        pass
+        graph = StateGraph(ResearchState)
+        graph.add_node("extract_tools", self._extract_tools_step)
+        graph.add_node("research", self._research_step)
+        graph.add_node("analyze", self._analyze_step)
+        graph.set_entry_point("extract_tools")
+        graph.add_edge("extract_tools", "research")
+        graph.add_edge("research", "analyze")
+        graph.add_edge("analyze", END)
+        return graph.compile()
     
     def _extract_tools_step(self, state: ResearchState) -> Dict[str,Any]:
         print(f"Finding articles about {state.query}")
@@ -112,3 +120,22 @@ class Workflow:
                 companies.append(company)
         
         return companies
+    
+    def _analyze_step(self, state:ResearchState) -> Dict[str, Any]:
+        print("Generating recomendations")
+        company_data = ",".join([
+            company.model_dump_json() for company in state.companies
+        ])
+        
+        messages = [
+            SystemMessage(content=self.promts.RECOMMENDATIONS_SYSTEM),
+            HumanMessage(content = self.promts.recommendations_user(state.query, company_data))
+        ]
+        
+        response = self.llm.invoke(messages)
+        return {"analysis": response.content}
+    
+    def run(self, query:str) -> ResearchState:
+        initial_state = ResearchState(query=query)
+        final_state = self.workflow.invoke(initial_state)
+        return ResearchState(**final_state)
