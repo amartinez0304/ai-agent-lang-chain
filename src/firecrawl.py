@@ -25,7 +25,7 @@ class FireCrawlService:
             print(e)
             return []
     
-    def scrape_company_pages(self, url:str):
+    def scrape_company_page(self, url:str):
         try:
             result = self.app.scrape_url(
                 url, 
